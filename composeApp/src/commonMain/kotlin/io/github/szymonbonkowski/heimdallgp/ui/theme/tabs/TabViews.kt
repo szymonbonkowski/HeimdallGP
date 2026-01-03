@@ -1,8 +1,11 @@
 package io.github.szymonbonkowski.heimdallgp.ui.tabs
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,8 +13,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,8 +36,7 @@ fun RaceDataTab(driver: Driver) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
     ) {
         TelemetryPanel(
             speed = driver.speedKmh,
@@ -40,12 +45,13 @@ fun RaceDataTab(driver: Driver) {
             throttle = driver.throttle,
             brake = driver.brake
         )
-        Spacer(modifier = Modifier.height(16.dp))
+
+        Spacer(modifier = Modifier.weight(1f))
+
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             InfoBox("Tire Age", "12 Laps")
             InfoBox("Est. Pit", "Lap 60")
         }
-        Spacer(modifier = Modifier.height(80.dp))
     }
 }
 
@@ -58,14 +64,18 @@ fun InfoBox(label: String, value: String) {
 }
 
 @Composable
-fun LeaderboardTab(drivers: List<Driver>) {
+fun LeaderboardTab(
+    drivers: List<Driver>,
+    selectedDriverId: Int,
+    onDriverSelect: (Int) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
-            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
                 Text("POS", color = HeimdallColors.TextSecondary, fontSize = 10.sp, modifier = Modifier.width(40.dp).padding(start = 12.dp))
                 Text("DRIVER", color = HeimdallColors.TextSecondary, fontSize = 10.sp, modifier = Modifier.weight(1f))
                 Text("GAP", color = HeimdallColors.TextSecondary, fontSize = 10.sp, modifier = Modifier.width(60.dp), textAlign = TextAlign.End)
@@ -73,18 +83,34 @@ fun LeaderboardTab(drivers: List<Driver>) {
             }
         }
 
-        items(drivers.sortedBy { it.position }) { driver ->
-            LeaderboardItem(driver)
+        items(drivers.sortedBy { it.position }, key = { it.id }) { driver ->
+            Box(modifier = Modifier.animateItem()) {
+                LeaderboardItem(
+                    driver = driver,
+                    isSelected = driver.id == selectedDriverId,
+                    onClick = { onDriverSelect(driver.id) }
+                )
+            }
         }
     }
 }
 
 @Composable
-fun LeaderboardItem(driver: Driver) {
+fun LeaderboardItem(driver: Driver, isSelected: Boolean, onClick: () -> Unit) {
+    val bgColor = if (isSelected) Color(0xFF252525) else HeimdallColors.Surface
+
+    val animatedBarWidth by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 4.dp,
+        animationSpec = tween(durationMillis = 300)
+    )
+
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2329)),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().height(64.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .clickable { onClick() }
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -93,15 +119,22 @@ fun LeaderboardItem(driver: Driver) {
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .width(4.dp)
-                    .background(driver.teamColor)
-            )
+                    .width(8.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(animatedBarWidth)
+                        .background(driver.teamColor)
+                )
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Text(
                 text = driver.position.toString(),
-                color = Color.White,
+                color = if (isSelected) driver.teamColor else Color.White,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.width(30.dp)
@@ -141,9 +174,7 @@ fun LeaderboardItem(driver: Driver) {
             }
 
             Spacer(modifier = Modifier.width(8.dp))
-
             TireIcon(driver.tireCompound)
-
             Spacer(modifier = Modifier.width(12.dp))
         }
     }
@@ -168,10 +199,35 @@ fun TireIcon(compound: TireCompound) {
 
 @Composable
 fun TeamRadioTab(driver: Driver) {
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        TeamRadioPopup(
-            modifier = Modifier.padding(16.dp),
-            transcript = "Box box, box box. Stay out. Target +5."
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text = "Latest Transcript:",
+            color = HeimdallColors.TextSecondary,
+            fontSize = 12.sp
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Box box, box box. Stay out. Target +5.",
+            color = HeimdallColors.TireMedium,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = { /* TODO */ },
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9EEB)),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth().height(40.dp)
+        ) {
+            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Text("Replay Audio", color = Color.White, fontWeight = FontWeight.Bold)
+        }
     }
 }

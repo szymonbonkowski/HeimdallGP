@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import io.github.szymonbonkowski.heimdallgp.model.Driver
+import io.github.szymonbonkowski.heimdallgp.ui.theme.HeimdallColors
 import kotlin.math.sqrt
 
 @Composable
@@ -22,9 +23,9 @@ fun InteractiveTrackMap(
     selectedDriverId: Int,
     modifier: Modifier = Modifier
 ) {
-    var scale by remember { mutableStateOf(1.2f) }
+    var scale by remember { mutableStateOf(1.1f) }
     var rotationZ by remember { mutableStateOf(0f) }
-    var rotationX by remember { mutableStateOf(45f) }
+    var rotationX by remember { mutableStateOf(40f) }
 
     val trackPath = remember {
         Path().apply {
@@ -38,6 +39,7 @@ fun InteractiveTrackMap(
     }
 
     val pathMeasure = remember(trackPath) { PathMeasure() }
+    pathMeasure.setPath(trackPath, false)
     val pathLength = pathMeasure.length
 
     Box(
@@ -49,33 +51,20 @@ fun InteractiveTrackMap(
                         val event = awaitPointerEvent()
                         val changes = event.changes
                         val pressed = changes.filter { it.pressed }
-                        val pointerCount = pressed.size
 
-                        if (pointerCount == 1) {
+                        if (pressed.size == 1) {
                             val change = pressed.first()
-                            val dragAmount = change.positionChange()
-
-                            rotationZ += dragAmount.x * 0.4f
-
-                            rotationX = (rotationX + dragAmount.y * 0.4f).coerceIn(0f, 85f)
-
+                            val drag = change.positionChange()
+                            rotationZ += drag.x * 0.4f
+                            rotationX = (rotationX + drag.y * 0.4f).coerceIn(0f, 70f)
                             change.consume()
-
-                        } else if (pointerCount == 2) {
+                        } else if (pressed.size == 2) {
                             val p1 = pressed[0]
                             val p2 = pressed[1]
-
-                            val p1Pos = p1.position
-                            val p2Pos = p2.position
-                            val prevP1Pos = p1Pos - p1.positionChange()
-                            val prevP2Pos = p2Pos - p2.positionChange()
-
-                            val currentDist = (p1Pos - p2Pos).getDistance()
-                            val prevDist = (prevP1Pos - prevP2Pos).getDistance()
-
+                            val currentDist = (p1.position - p2.position).getDistance()
+                            val prevDist = ((p1.position - p1.positionChange()) - (p2.position - p2.positionChange())).getDistance()
                             val zoomFactor = if (prevDist > 0) currentDist / prevDist else 1f
                             scale = (scale * zoomFactor).coerceIn(0.5f, 6f)
-
                             changes.forEach { it.consume() }
                         }
                     }
@@ -91,48 +80,37 @@ fun InteractiveTrackMap(
                     this.rotationZ = rotationZ
                     this.rotationX = rotationX
                     cameraDistance = 16f * density
-
                     transformOrigin = TransformOrigin.Center
                 }
         ) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val canvasWidth = size.width
-                val canvasHeight = size.height
+                val cw = size.width
+                val ch = size.height
 
                 withTransform({
-                    translate(left = canvasWidth / 2 - 500f, top = canvasHeight / 2 - 450f)
+                    translate(left = cw / 2 - 500f, top = ch / 2 - 450f)
                 }) {
                     drawPath(
                         path = trackPath,
-                        color = Color(0xFFFF5722),
-                        style = Stroke(width = 28f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        color = HeimdallColors.NeonTrack,
+                        style = Stroke(width = 36f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
                     drawPath(
                         path = trackPath,
-                        color = Color(0xFF000000),
-                        style = Stroke(width = 16f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        color = Color(0xFF151515),
+                        style = Stroke(width = 24f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
-                    drawPath(
-                        path = trackPath,
-                        color = Color.White.copy(alpha = 0.5f),
-                        style = Stroke(width = 1f)
-                    )
-
-                    val sectors = listOf(0.15f, 0.4f, 0.65f, 0.9f)
-                    sectors.forEach { prog ->
-                        val pos = pathMeasure.getPosition(prog * pathLength)
-                        drawCircle(Color(0xFF2196F3), radius = 8f, center = pos)
-                        drawCircle(Color.Black, radius = 4f, center = pos)
-                    }
 
                     drivers.forEach { driver ->
                         val pos = pathMeasure.getPosition(driver.progress * pathLength)
                         val isSelected = driver.id == selectedDriverId
 
                         if (isSelected) {
-                            drawCircle(Color.White, radius = 14f, center = pos)
-                        } else {
+                            drawCircle(Color.White, radius = 20f, center = pos)
                             drawCircle(driver.teamColor, radius = 8f, center = pos)
+                        } else {
+                            drawCircle(Color.Black, radius = 14f, center = pos)
+                            drawCircle(driver.teamColor, radius = 10f, center = pos)
                         }
                     }
                 }
@@ -141,4 +119,4 @@ fun InteractiveTrackMap(
     }
 }
 
-private fun Offset.getDistance(): Float = sqrt(x * x + y * y)
+private fun Offset.getDistance() = sqrt(x * x + y * y)

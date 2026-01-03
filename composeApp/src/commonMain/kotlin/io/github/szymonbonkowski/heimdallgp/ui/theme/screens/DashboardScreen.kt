@@ -3,13 +3,16 @@ package io.github.szymonbonkowski.heimdallgp.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -24,7 +27,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen() {
     val simulator = remember { RaceSimulator() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         simulator.startSimulation(this)
@@ -34,7 +36,6 @@ fun DashboardScreen() {
     val currentLap by simulator.currentLap.collectAsState()
 
     var selectedDriverId by remember { mutableStateOf(1) }
-
     var currentTab by remember { mutableStateOf(DashboardTab.LEADERBOARD) }
 
     val selectedDriver = drivers.find { it.id == selectedDriverId } ?: drivers.firstOrNull()
@@ -84,13 +85,17 @@ fun DashboardScreen() {
                         .weight(1f)
                         .background(HeimdallColors.Surface)
                 ) {
-                    DriverHeaderCompact(driver = selectedDriver)
+                    DriverHeaderNew(driver = selectedDriver)
 
-                    HorizontalDivider(color = Color.DarkGray, thickness = 0.5.dp)
+                    HorizontalDivider(color = Color(0xFF333333), thickness = 1.dp)
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         when (currentTab) {
-                            DashboardTab.LEADERBOARD -> LeaderboardTab(drivers)
+                            DashboardTab.LEADERBOARD -> LeaderboardTab(
+                                drivers = drivers,
+                                selectedDriverId = selectedDriverId,
+                                onDriverSelect = { newId -> selectedDriverId = newId }
+                            )
                             DashboardTab.TEAM_RADIO -> TeamRadioTab(selectedDriver)
                             DashboardTab.RACE_DATA -> RaceDataTab(selectedDriver)
                         }
@@ -102,23 +107,73 @@ fun DashboardScreen() {
 }
 
 @Composable
-fun DriverHeaderCompact(driver: Driver) {
+fun DriverHeaderNew(driver: Driver) {
     Row(
-        modifier = Modifier.padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(48.dp)
-                .background(driver.teamColor, CircleShape)
-        ) {
-            Text(driver.number.toString(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(driver.teamColor)
+            ) {
+                Text(
+                    text = driver.number.toString(),
+                    color = Color.White,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column {
+                Text(
+                    text = driver.name,
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = driver.team,
+                    color = HeimdallColors.TextSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
-        Spacer(Modifier.width(16.dp))
-        Column {
-            Text(driver.name, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(driver.team, color = HeimdallColors.TextSecondary, fontSize = 14.sp)
+
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "P${driver.position}",
+                color = HeimdallColors.TireSoft,
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Black,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${driver.speedKmh}",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(" km/h", color = HeimdallColors.TextSecondary, fontSize = 12.sp)
+
+                Spacer(Modifier.width(8.dp))
+
+                TireIcon(driver.tireCompound)
+            }
         }
     }
 }
