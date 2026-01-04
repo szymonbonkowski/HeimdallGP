@@ -10,12 +10,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Path
+import io.github.szymonbonkowski.heimdallgp.data.TrackRepository
 import io.github.szymonbonkowski.heimdallgp.logic.RaceSimulator
 import io.github.szymonbonkowski.heimdallgp.model.DashboardTab
 import io.github.szymonbonkowski.heimdallgp.model.Driver
@@ -37,6 +38,22 @@ fun DashboardScreen() {
 
     var selectedDriverId by remember { mutableStateOf(1) }
     var currentTab by remember { mutableStateOf(DashboardTab.LEADERBOARD) }
+
+    var trackPath by remember { mutableStateOf(Path()) }
+    var trackName by remember { mutableStateOf("Loading...") }
+
+    LaunchedEffect(Unit) {
+        val tracks = TrackRepository.getTrackList()
+
+        val selectedTrack = tracks.find { it.location.contains("Monaco") } ?: tracks.firstOrNull()
+
+        if (selectedTrack != null) {
+            trackName = selectedTrack.name
+            trackPath = TrackRepository.loadTrackPath(selectedTrack.id)
+        } else {
+            trackName = "No Track Found"
+        }
+    }
 
     val selectedDriver = drivers.find { it.id == selectedDriverId } ?: drivers.firstOrNull()
 
@@ -63,7 +80,7 @@ fun DashboardScreen() {
                     Spacer(Modifier.width(8.dp))
                     Text("LIVE", color = Color.White, fontWeight = FontWeight.Bold)
                 }
-                Text("Monaco GP", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(trackName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text("$currentLap/78", color = Color.White)
             }
 
@@ -74,7 +91,8 @@ fun DashboardScreen() {
             ) {
                 InteractiveTrackMap(
                     drivers = drivers,
-                    selectedDriverId = selectedDriverId
+                    selectedDriverId = selectedDriverId,
+                    trackPath = trackPath
                 )
             }
 
@@ -120,8 +138,7 @@ fun DriverHeaderNew(driver: Driver) {
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(driver.teamColor)
+                    .background(driver.teamColor, RoundedCornerShape(16.dp))
             ) {
                 Text(
                     text = driver.number.toString(),
@@ -131,9 +148,7 @@ fun DriverHeaderNew(driver: Driver) {
                     fontFamily = FontFamily.Monospace
                 )
             }
-
             Spacer(Modifier.width(16.dp))
-
             Column {
                 Text(
                     text = driver.name,
@@ -158,9 +173,7 @@ fun DriverHeaderNew(driver: Driver) {
                 fontWeight = FontWeight.Black,
                 fontFamily = FontFamily.Monospace
             )
-
             Spacer(Modifier.height(4.dp))
-
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${driver.speedKmh}",
@@ -169,9 +182,7 @@ fun DriverHeaderNew(driver: Driver) {
                     fontSize = 14.sp
                 )
                 Text(" km/h", color = HeimdallColors.TextSecondary, fontSize = 12.sp)
-
                 Spacer(Modifier.width(8.dp))
-
                 TireIcon(driver.tireCompound)
             }
         }

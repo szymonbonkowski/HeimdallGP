@@ -21,22 +21,12 @@ import kotlin.math.sqrt
 fun InteractiveTrackMap(
     drivers: List<Driver>,
     selectedDriverId: Int,
+    trackPath: Path,
     modifier: Modifier = Modifier
 ) {
     var scale by remember { mutableStateOf(1.1f) }
     var rotationZ by remember { mutableStateOf(0f) }
     var rotationX by remember { mutableStateOf(40f) }
-
-    val trackPath = remember {
-        Path().apply {
-            moveTo(100f, 400f)
-            cubicTo(200f, 380f, 600f, 350f, 800f, 300f)
-            cubicTo(950f, 250f, 900f, 450f, 750f, 500f)
-            cubicTo(600f, 550f, 300f, 580f, 150f, 550f)
-            cubicTo(50f, 520f, 50f, 420f, 100f, 400f)
-            close()
-        }
-    }
 
     val pathMeasure = remember(trackPath) { PathMeasure() }
     pathMeasure.setPath(trackPath, false)
@@ -88,7 +78,7 @@ fun InteractiveTrackMap(
                 val ch = size.height
 
                 withTransform({
-                    translate(left = cw / 2 - 500f, top = ch / 2 - 450f)
+                    translate(left = cw / 2 - 500f, top = ch / 2 - 500f)
                 }) {
                     drawPath(
                         path = trackPath,
