@@ -4,18 +4,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Path
+import io.github.szymonbonkowski.heimdallgp.data.F1DataManager
+import io.github.szymonbonkowski.heimdallgp.data.F1SignalRClient
 import io.github.szymonbonkowski.heimdallgp.data.TrackRepository
 import io.github.szymonbonkowski.heimdallgp.logic.RaceSimulator
 import io.github.szymonbonkowski.heimdallgp.model.DashboardTab
@@ -27,14 +27,36 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen() {
+    var isDevMode by remember { mutableStateOf(false) }
+
     val simulator = remember { RaceSimulator() }
+    val dataManager = remember { F1DataManager() }
+    val signalRClient = remember { F1SignalRClient() }
 
     LaunchedEffect(Unit) {
-        simulator.startSimulation(this)
+        launch { simulator.startSimulation(this) }
+        launch {
+            println("Start SignalR...")
+            signalRClient.startConnection()
+        }
     }
 
-    val drivers by simulator.drivers.collectAsState()
-    val currentLap by simulator.currentLap.collectAsState()
+    val incomingPacket by signalRClient.incomingData.collectAsState()
+    LaunchedEffect(incomingPacket) {
+        incomingPacket?.let { (topic, payload) ->
+            dataManager.processData(topic, payload)
+        }
+    }
+
+    val simDrivers by simulator.drivers.collectAsState()
+    val simLap by simulator.currentLap.collectAsState()
+    val liveDrivers by dataManager.drivers.collectAsState()
+    val liveLap = 0
+
+    val drivers = if (isDevMode) simDrivers else liveDrivers
+    val currentLap = if (isDevMode) simLap else liveLap
+
+    val showContent = isDevMode || drivers.isNotEmpty()
 
     var selectedDriverId by remember { mutableStateOf(1) }
     var currentTab by remember { mutableStateOf(DashboardTab.LEADERBOARD) }
@@ -44,18 +66,20 @@ fun DashboardScreen() {
 
     LaunchedEffect(Unit) {
         val tracks = TrackRepository.getTrackList()
+        val defaultTrack = tracks.find { it.location.contains("Monaco") } ?: tracks.firstOrNull()
 
-        val selectedTrack = tracks.find { it.location.contains("Monaco") } ?: tracks.firstOrNull()
-
-        if (selectedTrack != null) {
-            trackName = selectedTrack.name
-            trackPath = TrackRepository.loadTrackPath(selectedTrack.id)
+        if (defaultTrack != null) {
+            trackName = defaultTrack.name
+            trackPath = TrackRepository.loadTrackPath(defaultTrack.id)
         } else {
-            trackName = "No Track Found"
+            trackName = "No Track"
         }
     }
 
-    val selectedDriver = drivers.find { it.id == selectedDriverId } ?: drivers.firstOrNull()
+    val selectedDriver = drivers.find { it.id == selectedDriverId }
+        ?: drivers.firstOrNull().also {
+            if (it != null) selectedDriverId = it.id
+        }
 
     Scaffold(
         containerColor = HeimdallColors.Background,
@@ -68,20 +92,33 @@ fun DashboardScreen() {
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).background(Color.Red, CircleShape))
-                    Spacer(Modifier.width(8.dp))
-                    Text("LIVE", color = Color.White, fontWeight = FontWeight.Bold)
+
+            if (showContent) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        val statusColor = if (isDevMode) HeimdallColors.NeonTrack else Color.Green
+                        val statusText = if (isDevMode) "DEV MODE" else "LIVE"
+
+                        Box(Modifier.size(8.dp).background(statusColor, CircleShape))
+                        Spacer(Modifier.width(8.dp))
+                        Text(statusText, color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+
+                    Text(
+                        text = trackName,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+
+                    Text("Lap $currentLap/78", color = Color.White, fontWeight = FontWeight.Medium)
                 }
-                Text(trackName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                Text("$currentLap/78", color = Color.White)
             }
 
             Box(
@@ -89,33 +126,47 @@ fun DashboardScreen() {
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                InteractiveTrackMap(
-                    drivers = drivers,
-                    selectedDriverId = selectedDriverId,
-                    trackPath = trackPath
-                )
+                if (currentTab == DashboardTab.SETTINGS) {
+                }
+                else if (!showContent) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Waiting for live session data...", color = Color.Gray)
+                    }
+                } else {
+                    InteractiveTrackMap(
+                        drivers = drivers,
+                        selectedDriverId = selectedDriverId,
+                        trackPath = trackPath
+                    )
+                }
             }
 
-            if (selectedDriver != null) {
+            if (showContent || currentTab == DashboardTab.SETTINGS) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
                         .background(HeimdallColors.Surface)
                 ) {
-                    DriverHeaderNew(driver = selectedDriver)
-
-                    HorizontalDivider(color = Color(0xFF333333), thickness = 1.dp)
+                    if (showContent && selectedDriver != null && currentTab != DashboardTab.SETTINGS) {
+                        DriverHeaderNew(driver = selectedDriver)
+                        HorizontalDivider(color = Color(0xFF333333), thickness = 1.dp)
+                    }
 
                     Box(modifier = Modifier.fillMaxSize()) {
                         when (currentTab) {
-                            DashboardTab.LEADERBOARD -> LeaderboardTab(
+                            DashboardTab.LEADERBOARD -> if (showContent) LeaderboardTab(
                                 drivers = drivers,
                                 selectedDriverId = selectedDriverId,
                                 onDriverSelect = { newId -> selectedDriverId = newId }
                             )
-                            DashboardTab.TEAM_RADIO -> TeamRadioTab(selectedDriver)
-                            DashboardTab.RACE_DATA -> RaceDataTab(selectedDriver)
+                            DashboardTab.TEAM_RADIO -> if (showContent && selectedDriver != null) TeamRadioTab(selectedDriver)
+                            DashboardTab.RACE_DATA -> if (showContent && selectedDriver != null) RaceDataTab(selectedDriver)
+
+                            DashboardTab.SETTINGS -> SettingsTab(
+                                isDevMode = isDevMode,
+                                onDevModeChange = { isDevMode = it }
+                            )
                         }
                     }
                 }

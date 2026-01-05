@@ -16,8 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,16 +26,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.szymonbonkowski.heimdallgp.model.Driver
 import io.github.szymonbonkowski.heimdallgp.model.TireCompound
-import io.github.szymonbonkowski.heimdallgp.ui.components.TeamRadioPopup
 import io.github.szymonbonkowski.heimdallgp.ui.components.TelemetryPanel
 import io.github.szymonbonkowski.heimdallgp.ui.theme.HeimdallColors
+
 
 @Composable
 fun RaceDataTab(driver: Driver) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
+            .padding(16.dp)
     ) {
         TelemetryPanel(
             speed = driver.speedKmh,
@@ -203,24 +202,19 @@ fun TeamRadioTab(driver: Driver) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .padding(16.dp)
     ) {
-        Text(
-            text = "Latest Transcript:",
-            color = HeimdallColors.TextSecondary,
-            fontSize = 12.sp
-        )
+        Text("Latest Transcript:", color = HeimdallColors.TextSecondary, fontSize = 12.sp)
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Box box, box box. Stay out. Target +5.",
+            text = "Box box. Stay out.",
             color = HeimdallColors.TireMedium,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
         Spacer(modifier = Modifier.height(16.dp))
-
         Button(
-            onClick = { /* TODO */ },
+            onClick = { println("Audio click") },
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4C9EEB)),
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth().height(40.dp)
@@ -228,6 +222,87 @@ fun TeamRadioTab(driver: Driver) {
             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
             Spacer(Modifier.width(8.dp))
             Text("Replay Audio", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun SettingsTab(
+    isDevMode: Boolean,
+    onDevModeChange: (Boolean) -> Unit
+) {
+    var textInput by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "App Mode Configuration",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "Current Mode: ${if (isDevMode) "DEVELOPER (Dummy Data)" else "USER (Live SignalR)"}",
+            color = if (isDevMode) HeimdallColors.NeonTrack else HeimdallColors.TireSoft,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = textInput,
+            onValueChange = { textInput = it },
+            label = { Text("Enter command") },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedBorderColor = HeimdallColors.RedBullBlue,
+                unfocusedBorderColor = HeimdallColors.TextSecondary,
+                focusedLabelColor = HeimdallColors.RedBullBlue,
+                unfocusedLabelColor = HeimdallColors.TextSecondary
+            ),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                when (textInput.lowercase().trim()) {
+                    "dev" -> {
+                        onDevModeChange(true)
+                        message = "Switched to Developer Mode"
+                        textInput = ""
+                    }
+                    "user" -> {
+                        onDevModeChange(false)
+                        message = "Switched to User Mode"
+                        textInput = ""
+                    }
+                    else -> {
+                        message = "Unknown command. Try 'dev' or 'user'."
+                    }
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = HeimdallColors.SurfaceHighlight),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Confirm", color = Color.White)
+        }
+
+        if (message.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Text(message, color = HeimdallColors.TextSecondary, fontSize = 14.sp)
         }
     }
 }

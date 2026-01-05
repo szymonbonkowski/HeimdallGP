@@ -30,7 +30,3 @@ enum class TireCompound(val label: String, val color: Color) {
     INTER("Inter", Color(0xFF30D158)),
     WET("Wet", Color(0xFF0A84FF))
 }
-
-enum class DashboardTab {
-    LEADERBOARD, TEAM_RADIO, RACE_DATA
-}

@@ -45,6 +45,8 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
             implementation(libs.kotlinx.serialization.json)
+            implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.3")
+            implementation("com.squareup.okio:okio:3.9.0")
         }
 
         val iosMain by creating {
