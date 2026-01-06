@@ -59,7 +59,6 @@ class F1DataManager {
                     number = dto.racingNumber.toIntOrNull() ?: 0,
                     position = 0,
                     tireCompound = TireCompound.HARD,
-
                     progress = 0f,
                     lap = 0,
                     speedKmh = 0,
@@ -69,7 +68,10 @@ class F1DataManager {
                     brake = 0f,
                     lastLap = "",
                     bestLap = "",
-                    gapToLeader = ""
+                    gapToLeader = "",
+                    x = 0.0,
+                    y = 0.0,
+                    z = 0.0
                 )
 
                 driverMap[driverNumber] = updatedDriver
@@ -100,6 +102,20 @@ class F1DataManager {
     }
 
     private fun parsePositionData(payload: String) {
+        try {
+            val packet = json.decodeFromString<F1PositionPacketDto>(payload)
+            packet.position?.forEach { posDto ->
+                val driverNumber = posDto.number.toString()
+                val existing = driverMap[driverNumber] ?: return@forEach
+
+                driverMap[driverNumber] = existing.copy(
+                    x = posDto.x,
+                    y = posDto.y,
+                    z = posDto.z
+                )
+            }
+        } catch (e: Exception) {
+        }
     }
 
     private fun parseTelemetry(payload: String) {
@@ -110,7 +126,6 @@ class F1DataManager {
             latestEntry.cars?.forEach { (driverNumber, data) ->
                 val existing = driverMap[driverNumber] ?: return@forEach
                 val channels = data.channels ?: return@forEach
-
 
                 if (channels.size > 5) {
                     val rpm = channels[0].toInt()

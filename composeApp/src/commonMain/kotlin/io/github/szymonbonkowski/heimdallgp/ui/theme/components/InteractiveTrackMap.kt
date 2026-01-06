@@ -6,15 +6,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import io.github.szymonbonkowski.heimdallgp.model.Driver
 import io.github.szymonbonkowski.heimdallgp.ui.theme.HeimdallColors
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 
 @Composable
@@ -28,9 +30,24 @@ fun InteractiveTrackMap(
     var rotationZ by remember { mutableStateOf(0f) }
     var rotationX by remember { mutableStateOf(40f) }
 
-    val pathMeasure = remember(trackPath) { PathMeasure() }
-    pathMeasure.setPath(trackPath, false)
-    val pathLength = pathMeasure.length
+    val pathBounds = remember(trackPath) { trackPath.getBounds() }
+
+    var f1MinX by remember { mutableStateOf(Float.MAX_VALUE) }
+    var f1MaxX by remember { mutableStateOf(Float.MIN_VALUE) }
+    var f1MinY by remember { mutableStateOf(Float.MAX_VALUE) }
+    var f1MaxY by remember { mutableStateOf(Float.MIN_VALUE) }
+
+    LaunchedEffect(drivers) {
+        var changed = false
+        drivers.forEach { d ->
+            if (d.x != 0.0 || d.y != 0.0) {
+                if (d.x < f1MinX) { f1MinX = d.x.toFloat(); changed = true }
+                if (d.x > f1MaxX) { f1MaxX = d.x.toFloat(); changed = true }
+                if (d.y < f1MinY) { f1MinY = d.y.toFloat(); changed = true }
+                if (d.y > f1MaxY) { f1MaxY = d.y.toFloat(); changed = true }
+            }
+        }
+    }
 
     Box(
         modifier = modifier
@@ -78,7 +95,7 @@ fun InteractiveTrackMap(
                 val ch = size.height
 
                 withTransform({
-                    translate(left = cw / 2 - 500f, top = ch / 2 - 500f)
+                    translate(left = cw / 2 - pathBounds.center.x, top = ch / 2 - pathBounds.center.y)
                 }) {
                     drawPath(
                         path = trackPath,
@@ -91,16 +108,34 @@ fun InteractiveTrackMap(
                         style = Stroke(width = 24f, cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
 
-                    drivers.forEach { driver ->
-                        val pos = pathMeasure.getPosition(driver.progress * pathLength)
-                        val isSelected = driver.id == selectedDriverId
+                    val f1Width = f1MaxX - f1MinX
+                    val f1Height = f1MaxY - f1MinY
 
-                        if (isSelected) {
-                            drawCircle(Color.White, radius = 20f, center = pos)
-                            drawCircle(driver.teamColor, radius = 8f, center = pos)
-                        } else {
-                            drawCircle(Color.Black, radius = 14f, center = pos)
-                            drawCircle(driver.teamColor, radius = 10f, center = pos)
+                    if (f1Width > 100 && f1Height > 100) {
+
+
+                        val scaleX = pathBounds.width / f1Width
+                        val scaleY = pathBounds.height / f1Height
+
+
+                        drivers.forEach { driver ->
+                            if (driver.x != 0.0 || driver.y != 0.0) {
+
+                                val mapX = (driver.x.toFloat() - f1MinX) * scaleX + pathBounds.left
+
+                                val mapY = (driver.y.toFloat() - f1MinY) * scaleY + pathBounds.top
+
+                                val pos = Offset(mapX, mapY)
+                                val isSelected = driver.id == selectedDriverId
+
+                                if (isSelected) {
+                                    drawCircle(Color.White, radius = 20f, center = pos)
+                                    drawCircle(driver.teamColor, radius = 8f, center = pos)
+                                } else {
+                                    drawCircle(Color.Black, radius = 14f, center = pos)
+                                    drawCircle(driver.teamColor, radius = 10f, center = pos)
+                                }
+                            }
                         }
                     }
                 }
